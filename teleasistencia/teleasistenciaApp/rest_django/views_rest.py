@@ -22,7 +22,8 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from django.utils.connection import ConnectionDoesNotExist
-from .utils import getQueryAnd
+from .utils import getQueryAnd, partial_update_generico
+
 # Modelos propios
 from ..models import *
 # Serializadores propios
@@ -93,17 +94,17 @@ class ProfileViewSet(viewsets.ModelViewSet):
                 # Guardar cambios
                 user_image.save()
 
-                # Si el usuario es un administrador permitirle cambiar su BBDD seleccionada.
-                if request.user.has_perms([IsAdminMember]) and request.data.get("id_database") is not None:
-                    db_user = Database_User.objects.get(user=user)
-                    new_db = Database.objects.get(pk=request.data.get("id_database"))
-                    # Si se ha hecho un cambio de base de datos
-                    if new_db is not db_user.database:
-                        # Cambiamos la BBDD asignada
-                        db_user.database = new_db
-                        db_user.save()
-                        # Guardamos el usuario en la nueva DDBB
-                        user.save(using=new_db.nameDescritive)
+            # Si el usuario es un administrador permitirle cambiar su BBDD seleccionada.
+            if request.user.has_perms([IsAdminMember]) and request.data.get("id_database") is not None:
+                db_user = Database_User.objects.get(user=user)
+                new_db = Database.objects.get(pk=request.data.get("id_database"))
+                # Si se ha hecho un cambio de base de datos
+                if new_db is not db_user.database:
+                    # Cambiamos la BBDD asignada
+                    db_user.database = new_db
+                    db_user.save()
+                    # Guardamos el usuario en la nueva DDBB
+                    user.save(using=new_db.nameDescritive)
 
             user.save()
 
@@ -277,10 +278,20 @@ class GroupViewSet(viewsets.ModelViewSet):
     """
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
+    http_method_names=['get']
 
-    # permission_classes = [permissions.IsAdminUser]
-    permission_classes = [IsTeacherMember]
+    # Solo permitirmos que el grupo administrador se muestra para ellos mismos,
+    # así no permitimos seleccionarlo en los usuarios del servicio
+    def list(self, request, *args, **kwargs):
+        # Hacemos una búsqueda por los valores introducidos por parámetros
+        is_group_admin = request.user.groups.filter(name='administrador')
 
+        if not is_group_admin:
+            queryset = Group.objects.exclude(name= 'administrador')
+        else:
+            queryset = Group.objects.all()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 class Clasificacion_Recurso_Comunitario_ViewSet(viewsets.ModelViewSet):
     """
@@ -1072,12 +1083,9 @@ class Paciente_ViewSet(viewsets.ModelViewSet):
         paciente_serializer = Paciente_Serializer(paciente)
         return Response(paciente_serializer.data)
 
+    # Ejemplo de cómo se haría un PATCH genérico
     def partial_update(self, request, *args, **kwargs):
-        paciente = Paciente.objects.get(pk=kwargs["pk"])
-        paciente.numero_seguridad_social = request.data.get("numero_seguridad_social")
-        paciente.save()
-        paciente_serializer = Paciente_Serializer(paciente)
-        return Response(paciente_serializer.data)
+        return Response(partial_update_generico(self, request, *args, **kwargs))
 
     def destroy(self, request, *args, **kwargs):
         #Conseguimos el parametro de la URL
