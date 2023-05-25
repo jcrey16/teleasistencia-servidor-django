@@ -26,7 +26,7 @@ from rest_framework import routers
 from teleasistenciaApp.rest_django import views_rest
 
 # Para recuperación de contraseñas
-from .views import get_csrf_token
+from .views import get_csrf_token, TokenObtainPairSerializerWithLastLogin
 
 #Autenticación rest con JWT:
 from rest_framework_simplejwt.views import (
@@ -71,6 +71,7 @@ router.register(r'persona_contacto_en_alarma', views_rest.Persona_Contacto_En_Al
 router.register(r'gestion_base_datos', views_rest.Gestion_Base_Datos_ViewSet)
 router.register(r'profile', views_rest.ProfileViewSet)
 router.register(r'desarrollador_tecnologia', views_rest.DesarrolladorTecnologiaViewSet)
+router.register(r'seguimiento_teleoperador', views_rest.SeguimientoTeleoperador)
 
 
 urlpatterns = [
@@ -88,7 +89,7 @@ urlpatterns = [
     #Django Rest social Auth:
     url(r'^auth/', include('rest_framework_social_oauth2.urls')),
     #Django Rest Simple JWT:
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/', TokenObtainPairView.as_view(serializer_class=TokenObtainPairSerializerWithLastLogin), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # URLs de recuperación de contraseñas de usuarios de Django (desde navegador)
